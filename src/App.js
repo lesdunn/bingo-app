@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Lottie from 'lottie-react';
 import spinnerAnim from './animations/scribe_loading.json';
 import verseFirstLogo from './images/VerseFirst_Transparent_3.png';
@@ -53,8 +53,39 @@ function App() {
   const [error, setError] = useState(null);
   const [rhyme, setRhyme] = useState(null);
   const [history, setHistory] = useState([]); // added history state
+  const [historyLookup, setHistoryLookup] = useState('');
+  const [historyLookupFocused, setHistoryLookupFocused] = useState(false);
+
+  // only allow whole numbers in the Check box
+  const handleHistoryLookupChange = (e) => {
+    const cleaned = (e.target.value || '').replace(/\D+/g, ''); // strip any non-digits
+    setHistoryLookup(cleaned);
+  };
+
+  const handleHistoryLookupPaste = (e) => {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData).getData('text') || '';
+    const cleaned = pasted.replace(/\D+/g, '');
+    setHistoryLookup(cleaned);
+  };
+
+  // true when the lookup box currently matches an entry in history
+  const lookupFound = useMemo(() => {
+    const q = historyLookup.trim();
+    if (!q) return false;
+    // try numeric match first
+    const n = Number(q);
+    if (!Number.isNaN(n) && q !== '') {
+      return history.some(h => Number(h) === n);
+    }
+    const norm = q.toLowerCase();
+    return history.some(h => String(h).toLowerCase() === norm);
+  }, [history, historyLookup]);
 
   const fetchNumber = useCallback(async () => {
+    // clear the Check... input as part of the generate action
+    setHistoryLookup('');
+    setHistoryLookupFocused(false);
     setLoading(true);
     setError(null);
 
@@ -89,6 +120,9 @@ function App() {
     setRhyme(null);
     setHistory([]);
     setError(null);
+    // clear the Check... input
+    setHistoryLookup('');
+    setHistoryLookupFocused(false);
 
     // still notify server; keep loading indicator while request in flight
     setLoading(true);
@@ -112,9 +146,11 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
+      // only handle space here
+      if (!(e.code === 'Space' || e.key === ' ')) return;
+
       const active = document.activeElement;
       const tag = active && active.tagName;
-
       const activeExists = Boolean(active);
       const isContentEditable = activeExists ? Boolean(active.isContentEditable) : false;
       const isInputTag = tag === 'INPUT' || tag === 'TEXTAREA';
@@ -122,12 +158,14 @@ function App() {
         ? active.getAttribute('role') === 'textbox'
         : false;
       const isEditable = isContentEditable || isInputTag || hasRoleTextbox;
-      if (isEditable) return;
 
-      if (e.code === 'Space' || e.key === ' ') {
-        e.preventDefault();
-        if (!loading && fetchNumberRef.current) fetchNumberRef.current();
+      // if an editable element is focused, blur it so it stops receiving input
+      if (isEditable && active && typeof active.blur === 'function') {
+        active.blur();
       }
+
+      e.preventDefault(); // prevent page scroll
+      if (!loading && fetchNumberRef.current) fetchNumberRef.current();
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -136,6 +174,14 @@ function App() {
 
   return (
     <div style={{ maxWidth: 900, margin: '50px auto' }}>
+      {/* placeholder style for the Check... input */}
+      <style>{`
+        .history-check::placeholder { color: #000 !important; font-style: italic !important; opacity: 1 !important; }
+        .history-check::-webkit-input-placeholder { color: #000 !important; font-style: italic !important; opacity: 1 !important; }
+        .history-check::-moz-placeholder { color: #000 !important; font-style: italic !important; opacity: 1 !important; }
+        .history-check:-ms-input-placeholder { color: #000 !important; font-style: italic !important; opacity: 1 !important; }
+      `}</style>
+
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
           <img src={verseFirstLogo} alt="VerseFirst" style={{ height: 200, display: 'inline-block' }} />
@@ -200,30 +246,87 @@ function App() {
           </div>
         </div>
 
-        <div>
-           {history.length === 0 ? (
-             <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
-           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-               <thead>
-                 <tr>
-                   <th style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', padding: 8, color: '#ffffff' }}>History</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {history.map((n, idx) => (
-                   <tr
-                     key={idx}
-                     style={{
-                       background: idx % 2 === 0 ? 'rgb(17,77,16)' : '#166b2a',
-                     }}
-                   >
-                     <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
-                   </tr>
+        <div style={{ maxHeight: 400, overflowY: 'auto', paddingRight: 8 }}>
+          {history.length === 0 ? (
+            <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
+          ) : (
+            <div style={{ minWidth: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th
+                      style={{
+                        borderBottom: '1px solid rgba(255,255,255,0.15)',
+                        textAlign: 'left',
+                        padding: 8,
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8
+                      }}
+                    >
+                      <span>History</span>
+                      <div style={{ marginLeft: 12, position: 'relative', display: 'inline-block' }}>
+                        <input
+                          className="history-check"
+                          value={historyLookup}
+                          onChange={handleHistoryLookupChange}
+                          onPaste={handleHistoryLookupPaste}
+                          onFocus={() => setHistoryLookupFocused(true)}
+                          onBlur={() => setHistoryLookupFocused(false)}
+                          placeholder="Check..."
+                          inputMode="numeric"
+                          pattern="\d*"
+                          aria-label="Check history number"
+                          style={{
+                            padding: '6px 36px 6px 8px',
+                            borderRadius: 6,
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            backgroundColor: historyLookup === '' ? 'transparent' : (lookupFound ? '#c8f7d1' : '#ffb3b3'),
+                            outline: 'none',
+                            /* show a dark-green focus ring instead of the browser red outline */
+                            boxShadow: historyLookupFocused ? '0 0 0 3px rgba(11, 91, 102, 0.25)' : 'none',
+                            color: '#000',
+                            minWidth: 120,
+                            display: 'inline-block'
+                          }}
+                        />
+                        {historyLookup !== '' && (
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              position: 'absolute',
+                              right: 8,
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              fontSize: 16,
+                              color: lookupFound ? '#0b6623' : '#ff3b30',
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            {lookupFound ? '✔' : '✖'}
+                          </span>
+                        )}
+                      </div>
+                 </th>
+               </tr>
+             </thead>
+                <tbody>
+                  {history.map((n, idx) => (
+                    <tr
+                      key={idx}
+                      style={{
+                        background: idx % 2 === 0 ? 'rgb(17,77,16)' : '#166b2a',
+                      }}
+                    >
+                      <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
+                    </tr>
                   ))}
-               </tbody>
-             </table>
-           )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
