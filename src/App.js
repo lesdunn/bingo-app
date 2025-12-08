@@ -51,6 +51,7 @@ function App() {
   const [number, setNumber] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [rhyme, setRhyme] = useState(null);
   const [history, setHistory] = useState([]); // added history state
 
   const fetchNumber = useCallback(async () => {
@@ -60,9 +61,21 @@ function App() {
     try {
       const response = await fetch('http://localhost:5555/api/generateNumber');
       if (!response.ok) throw new Error('Failed to fetch number');
-      const data = await response.text(); // assuming backend returns plain text number
-      setNumber(data);
-      setHistory(prev => [data, ...prev]); // update history on each successful fetch
+
+      // read as text then try to parse JSON so this works with both JSON and plain-text responses
+      const raw = await response.text();
+      let value;
+      try {
+        const parsed = JSON.parse(raw);
+        value = typeof parsed === 'object' && parsed !== null && 'number' in parsed ? parsed.number : raw;
+        setRhyme(typeof parsed === 'object' && parsed !== null && 'rhyme' in parsed ? parsed.rhyme : null);
+      } catch {
+        value = raw;
+        setRhyme(null);
+      }
+
+      setNumber(value);
+      setHistory(prev => [value, ...prev]);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -73,6 +86,7 @@ function App() {
   const resetGame = async () => {
     // clear UI immediately
     setNumber(null);
+    setRhyme(null);
     setHistory([]);
     setError(null);
 
@@ -174,8 +188,11 @@ function App() {
                 />
               </div>
             ) : number ? (
-              <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1, pointerEvents: 'auto' }}>
-                {number}
+              <div style={{ textAlign: 'center', pointerEvents: 'auto' }}>
+                {rhyme ? (
+                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8 }}>{rhyme}</div>
+                ) : null}
+                <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1 }}>{number}</div>
               </div>
             ) : (
               <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, pointerEvents: 'auto' }}>No number generated yet</div>
@@ -184,32 +201,29 @@ function App() {
         </div>
 
         <div>
-          <h3>History</h3>
-          {history.length === 0 ? (
-            <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
-          ) : (
+           {history.length === 0 ? (
+             <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
+           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', padding: 8, color: '#ffffff' }}>#</th>
-                  <th style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', padding: 8, color: '#ffffff' }}>Number</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.map((n, idx) => (
-                  <tr
-                    key={idx}
-                    style={{
-                      background: idx % 2 === 0 ? 'rgb(17,77,16)' : '#166b2a', // lighter green / darker green
-                    }}
-                  >
-                    <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{history.length - idx}</td>
-                    <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
-                  </tr>
-                 ))}
-              </tbody>
-            </table>
-          )}
+               <thead>
+                 <tr>
+                   <th style={{ borderBottom: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', padding: 8, color: '#ffffff' }}>History</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {history.map((n, idx) => (
+                   <tr
+                     key={idx}
+                     style={{
+                       background: idx % 2 === 0 ? 'rgb(17,77,16)' : '#166b2a',
+                     }}
+                   >
+                     <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
+                   </tr>
+                  ))}
+               </tbody>
+             </table>
+           )}
         </div>
       </div>
     </div>
