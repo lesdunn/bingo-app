@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Lottie from 'lottie-react';
 import spinnerAnim from './animations/scribe_loading.json';
-import verseFirstLogo from './images/VerseFirst_Transparent_3.png';
+import verseFirstLogo from './images/VerseFirst_bingo_logo.png';
 
 function App() {
   // set full-page background color
@@ -173,7 +173,7 @@ function App() {
   }, [loading]);
 
   return (
-    <div style={{ maxWidth: 900, margin: '50px auto' }}>
+    <div style={{ maxWidth: 900, margin: '0px auto' }}>
       {/* placeholder style for the Check... input */}
       <style>{`
         .history-check::placeholder { color: #000 !important; font-style: italic !important; opacity: 1 !important; }
@@ -183,9 +183,8 @@ function App() {
       `}</style>
 
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-          <img src={verseFirstLogo} alt="VerseFirst" style={{ height: 200, display: 'inline-block' }} />
-          <span>Bingo</span>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', marginBottom: -10, margin: 0, padding: 0}}>
+          <img src={verseFirstLogo} alt="VerseFirst" style={{ height: 300, display: 'inline-block' }} />
         </h1>
         <button onClick={fetchNumber} disabled={loading}>
           {loading ? 'Fetching...' : 'Generate Number'}
@@ -211,15 +210,17 @@ function App() {
           {/* absolutely-centered content box (fixed space, won't affect sibling column) */}
           <div
             style={{
+              /* position the rhyme/number at the top area of the left column
+                 so it lines up vertically with the "History" header on the right */
               position: 'absolute',
-              top: '50%',
+              top: 0,
               left: '50%',
-              transform: 'translate(-50%, -50%)',
+              transform: 'translateX(-50%)',
               width: '100%',
               maxWidth: 480,
               height: 400,
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-start',
               justifyContent: 'center',
               pointerEvents: 'none' /* keeps buttons clickable elsewhere */
             }}
@@ -246,7 +247,19 @@ function App() {
           </div>
         </div>
 
-        <div style={{ maxHeight: 400, overflowY: 'auto', paddingRight: 8 }}>
+        <div
+          style={{
+            /* fixed box height so the column doesn't move as rows are added.
+               content starts at the top and grows downward */
+            height: 400,
+            overflowY: 'auto',
+            paddingRight: 8,
+            alignSelf: 'stretch',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-start'
+          }}
+        >
           {history.length === 0 ? (
             <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
           ) : (
