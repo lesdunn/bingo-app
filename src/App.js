@@ -180,6 +180,9 @@ function App() {
       // only handle space here
       if (!(e.code === 'Space' || e.key === ' ')) return;
 
+      // disable spacebar functionality if any dialog is open
+      if (settingsOpen || createNewOpen) return;
+
       const active = document.activeElement;
       const tag = active && active.tagName;
       const activeExists = Boolean(active);
@@ -201,7 +204,7 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [loading]);
+  }, [loading, settingsOpen, createNewOpen]);
 
   return (
     <div style={{ maxWidth: 900, margin: '0px auto', position: 'relative' }}>
@@ -618,18 +621,16 @@ function App() {
               <div>
                 <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Background Colour</label>
                 <input
-                  type="text"
-                  value={newProfileBgColor}
+                  type="color"
+                  value={newProfileBgColor || '#ffffff'}
                   onChange={(e) => setNewProfileBgColor(e.target.value)}
-                  placeholder="e.g., #ff0000 or rgb(255, 0, 0)"
                   style={{
                     width: '100%',
-                    padding: '8px 12px',
+                    padding: '4px',
                     borderRadius: 6,
                     border: '1px solid #ddd',
-                    outline: 'none',
-                    fontSize: 14,
-                    color: '#000'
+                    cursor: 'pointer',
+                    height: 40
                   }}
                 />
               </div>
