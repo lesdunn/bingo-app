@@ -63,6 +63,8 @@ function App() {
   const [createNewOpen, setCreateNewOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileBgColor, setNewProfileBgColor] = useState('');
+  const [createNewError, setCreateNewError] = useState(null);
+  const [createNewLoading, setCreateNewLoading] = useState(false);
 
   // fetch profiles when dialog opens
   useEffect(() => {
@@ -631,6 +633,11 @@ function App() {
                   }}
                 />
               </div>
+              {createNewError && (
+                <div style={{ color: '#ff3b30', fontSize: 14 }}>
+                  {createNewError}
+                </div>
+              )}
             </div>
 
             {/* Footer with buttons */}
@@ -645,20 +652,81 @@ function App() {
               }}
             >
               <button
+                disabled={!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading}
+                onClick={async () => {
+                  if (!newProfileName.trim() || !newProfileBgColor.trim()) return;
+
+                  setCreateNewLoading(true);
+                  setCreateNewError(null);
+
+                  try {
+                    const payload = {
+                      name: newProfileName.trim(),
+                      backgroundColour: newProfileBgColor.trim(),
+                    };
+                    const response = await fetch('http://localhost:5555/profile', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(payload),
+                    });
+
+                    const text = await response.text();
+                    let result;
+                    try {
+                      result = JSON.parse(text);
+                    } catch {
+                      result = text;
+                    }
+                    if (!response.ok) {
+                      const message = (result && result.error) ? result.error : (typeof result === 'string' ? result : 'Failed to create profile');
+                      throw new Error(message);
+                    }
+
+                    // Refresh profiles list (ignore errors here)
+                    try {
+                      const profilesResponse = await fetch('http://localhost:5555/profiles');
+                      if (profilesResponse.ok) {
+                        const data = await profilesResponse.json();
+                        setProfiles(data);
+                      }
+                    } catch (refreshErr) {
+                      console.error('Failed to refresh profiles after creation', refreshErr);
+                    }
+
+                    // Close dialog and reset form
+                    setCreateNewOpen(false);
+                    setNewProfileName('');
+                    setNewProfileBgColor('');
+                    setCreateNewError(null);
+                  } catch (err) {
+                    setCreateNewError(err.message || 'Unknown error');
+                    console.error('Error creating profile', err);
+                  } finally {
+                    setCreateNewLoading(false);
+                  }
+                }}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 6,
                   border: 'none',
-                  backgroundColor: '#1976d2',
+                  backgroundColor: (!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading) ? '#ccc' : '#1976d2',
                   color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: 14
+                  cursor: (!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading) ? 'not-allowed' : 'pointer',
+                  fontSize: 14,
+                  opacity: (!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading) ? 0.6 : 1
                 }}
               >
-                Save
+                {createNewLoading ? 'Saving...' : 'Save'}
               </button>
               <button
-                onClick={() => setCreateNewOpen(false)}
+                onClick={() => {
+                  setCreateNewOpen(false);
+                  setNewProfileName('');
+                  setNewProfileBgColor('');
+                  setCreateNewError(null);
+                }}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 6,
