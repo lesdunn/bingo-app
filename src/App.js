@@ -55,6 +55,31 @@ function App() {
   const [history, setHistory] = useState([]); // added history state
   const [historyLookup, setHistoryLookup] = useState('');
   const [historyLookupFocused, setHistoryLookupFocused] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [profiles, setProfiles] = useState([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+
+  // fetch profiles when dialog opens
+  useEffect(() => {
+    if (!settingsOpen) return;
+    
+    const fetchProfiles = async () => {
+      setProfilesLoading(true);
+      try {
+        const response = await fetch('http://localhost:5555/profiles');
+        if (!response.ok) throw new Error('Failed to fetch profiles');
+        const data = await response.json();
+        setProfiles(data);
+      } catch (err) {
+        console.error('Error fetching profiles:', err.message);
+      } finally {
+        setProfilesLoading(false);
+      }
+    };
+
+    fetchProfiles();
+  }, [settingsOpen]);
 
   // only allow whole numbers in the Check box
   const handleHistoryLookupChange = (e) => {
@@ -189,9 +214,7 @@ function App() {
           padding: 4,
           zIndex: 1000
         }}
-        onClick={() => {
-          /* TODO: open settings popup */
-        }}
+        onClick={() => setSettingsOpen(true)}
       >
         ⚙️
       </button>
@@ -363,6 +386,147 @@ function App() {
           )}
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000
+          }}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+              width: '90%',
+              maxWidth: 400,
+              minHeight: 300,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: 16,
+                borderBottom: '1px solid #e0e0e0',
+                backgroundColor: '#f5f5f5',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000' }}>Profiles</h2>
+              <button
+                onClick={() => setSettingsOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#ff3b30',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  padding: 0,
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: 16
+              }}
+            >
+              {profilesLoading ? (
+                <div style={{ color: '#666', textAlign: 'center' }}>Loading profiles...</div>
+              ) : profiles.length === 0 ? (
+                <div style={{ color: '#666', textAlign: 'center' }}>No profiles found</div>
+              ) : (
+                profiles.map((profile) => (
+                  <div
+                    key={profile.name}
+                    onClick={() => setSelectedProfile(profile)}
+                    style={{
+                      padding: 12,
+                      marginBottom: 8,
+                      borderRadius: 6,
+                      border: selectedProfile?.name === profile.name ? '2px solid #1976d2' : '1px solid #ddd',
+                      backgroundColor: selectedProfile?.name === profile.name ? '#e3f2fd' : '#fff',
+                      cursor: 'pointer',
+                      color: '#000',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {profile.name}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer with buttons */}
+            <div
+              style={{
+                padding: 16,
+                borderTop: '1px solid #e0e0e0',
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'flex-start',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <button
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: '1px solid #ddd',
+                  backgroundColor: '#fff',
+                  color: '#000',
+                  cursor: 'pointer',
+                  fontSize: 14
+                }}
+              >
+                Create New
+              </button>
+              <button
+                disabled={!selectedProfile}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  backgroundColor: selectedProfile ? '#1976d2' : '#ccc',
+                  color: '#fff',
+                  cursor: selectedProfile ? 'pointer' : 'not-allowed',
+                  fontSize: 14,
+                  opacity: selectedProfile ? 1 : 0.6
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
