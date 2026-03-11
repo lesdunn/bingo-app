@@ -173,7 +173,28 @@ function App() {
   }, [loading]);
 
   return (
-    <div style={{ maxWidth: 900, margin: '0px auto' }}>
+    <div style={{ maxWidth: 900, margin: '0px auto', position: 'relative' }}>
+      {/* settings cog in top-right corner (will open customization popup in future) */}
+      <button
+        aria-label="Settings"
+        style={{
+          position: 'fixed',
+          top: 10,
+          right: 10,
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 24,
+          cursor: 'pointer',
+          padding: 4,
+          zIndex: 1000
+        }}
+        onClick={() => {
+          /* TODO: open settings popup */
+        }}
+      >
+        ⚙️
+      </button>
       {/* placeholder style for the Check... input */}
       <style>{`
         .history-check::placeholder { color: #000 !important; font-style: italic !important; opacity: 1 !important; }
