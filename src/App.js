@@ -60,6 +60,9 @@ function App() {
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [currentBgColor, setCurrentBgColor] = useState('rgb(17,77,16)');
+  const [createNewOpen, setCreateNewOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileBgColor, setNewProfileBgColor] = useState('');
 
   // fetch profiles when dialog opens
   useEffect(() => {
@@ -500,6 +503,7 @@ function App() {
               }}
             >
               <button
+                onClick={() => setCreateNewOpen(true)}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 6,
@@ -534,6 +538,138 @@ function App() {
                 }}
               >
                 Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Profile Modal */}
+      {createNewOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000
+          }}
+          onClick={() => setCreateNewOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+              width: '90%',
+              maxWidth: 400,
+              minHeight: 250,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: 16,
+                borderBottom: '1px solid #e0e0e0',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000' }}>Create New Profile</h2>
+            </div>
+
+            {/* Form */}
+            <div
+              style={{
+                flex: 1,
+                padding: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16
+              }}
+            >
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Name</label>
+                <input
+                  type="text"
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Background Colour</label>
+                <input
+                  type="text"
+                  value={newProfileBgColor}
+                  onChange={(e) => setNewProfileBgColor(e.target.value)}
+                  placeholder="e.g., #ff0000 or rgb(255, 0, 0)"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Footer with buttons */}
+            <div
+              style={{
+                padding: 16,
+                borderTop: '1px solid #e0e0e0',
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'flex-start',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <button
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  backgroundColor: '#1976d2',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 14
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setCreateNewOpen(false)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: '1px solid #ddd',
+                  backgroundColor: '#fff',
+                  color: '#000',
+                  cursor: 'pointer',
+                  fontSize: 14
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
