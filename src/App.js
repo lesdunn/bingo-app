@@ -59,6 +59,7 @@ function App() {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
+  const [currentBgColor, setCurrentBgColor] = useState('rgb(17,77,16)');
 
   // fetch profiles when dialog opens
   useEffect(() => {
@@ -370,16 +371,19 @@ function App() {
                </tr>
              </thead>
                 <tbody>
-                  {history.map((n, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        background: idx % 2 === 0 ? 'rgb(17,77,16)' : '#166b2a',
-                      }}
-                    >
-                      <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
-                    </tr>
-                  ))}
+                  {history.map((n, idx) => {
+                    const alternateColor = idx % 2 === 0 ? currentBgColor : 'rgba(0, 0, 0, 0.1)';
+                    return (
+                      <tr
+                        key={idx}
+                        style={{
+                          background: alternateColor,
+                        }}
+                      >
+                        <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -510,6 +514,14 @@ function App() {
               </button>
               <button
                 disabled={!selectedProfile}
+                onClick={() => {
+                  if (selectedProfile) {
+                    document.body.style.backgroundColor = selectedProfile.backgroundColour;
+                    document.title = `${selectedProfile.name} Bingo`;
+                    setCurrentBgColor(selectedProfile.backgroundColour);
+                    setSettingsOpen(false);
+                  }
+                }}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 6,
