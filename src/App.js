@@ -69,6 +69,8 @@ function App() {
   const [newProfileBgColor, setNewProfileBgColor] = useState('');
   const [valuesFileNames, setValuesFileNames] = useState([]);
   const [selectedValuesFile, setSelectedValuesFile] = useState('');
+  const [images, setImages] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
   const [createNewError, setCreateNewError] = useState(null);
   const [createNewLoading, setCreateNewLoading] = useState(false);
 
@@ -93,10 +95,10 @@ function App() {
     fetchProfiles();
   }, [settingsOpen]);
 
-  // fetch value file names when create-new dialog opens
+  // fetch value file names and images when create-new dialog opens
   useEffect(() => {
     if (!createNewOpen) return;
-    const fetchNames = async () => {
+    const fetchData = async () => {
       try {
         const resp = await fetch('http://localhost:5555/valueFileNames');
         if (!resp.ok) throw new Error('Failed to fetch value file names');
@@ -106,8 +108,17 @@ function App() {
         console.error('Error fetching value file names:', err);
         setValuesFileNames([]);
       }
+      try {
+        const resp = await fetch('http://localhost:5555/images');
+        if (!resp.ok) throw new Error('Failed to fetch images');
+        const data = await resp.json();
+        setImages(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching images:', err);
+        setImages([]);
+      }
     };
-    fetchNames();
+    fetchData();
   }, [createNewOpen]);
 
   // only allow whole numbers in the Check box
@@ -718,6 +729,45 @@ function App() {
                 </div>
               </div>
               <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Profile Image</label>
+                <select
+                  value={selectedImage ? selectedImage.name : ''}
+                  onChange={(e) => {
+                    const imageName = e.target.value;
+                    const img = images.find(i => i.name === imageName) || null;
+                    setSelectedImage(img);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {images.map(img => (
+                    <option key={img.name} value={img.name}>{img.name}</option>
+                  ))}
+                </select>
+                {selectedImage && (
+                  <div style={{ marginTop: 8, textAlign: 'center' }}>
+                    <img
+                      src={selectedImage.base64Image.startsWith('data:') ? selectedImage.base64Image : `data:image/png;base64,${selectedImage.base64Image}`}
+                      alt={selectedImage.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: 120,
+                        borderRadius: 6,
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
                 <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Background Colour</label>
                 <input
                   type="color"
@@ -769,6 +819,9 @@ function App() {
                       // some servers are case-sensitive; make sure we cover common variants
                       ValuesFile: selectedValuesFile,
                     };
+                    if (selectedImage) {
+                      payload.base64Image = selectedImage.base64Image;
+                    }
                     console.log('Creating profile with payload:', payload);
                     const response = await fetch('http://localhost:5555/profile', {
                       method: 'POST',
@@ -831,6 +884,8 @@ function App() {
                   setCreateNewOpen(false);
                   setNewProfileName('');
                   setNewProfileBgColor('');
+                  setSelectedImage(null);
+                  setSelectedImage(null);
                   setCreateNewError(null);
                 }}
                 style={{
