@@ -545,9 +545,34 @@ function App() {
                 Create New
               </button>
               <button
-                disabled={!selectedProfile}
-                onClick={() => {
-                  if (selectedProfile) {
+                disabled={!selectedProfile || loading}
+                onClick={async () => {
+                  if (!selectedProfile) return;
+
+                  setLoading(true);
+                  setError(null);
+
+                  try {
+                    // POST the selected profile to setProfile endpoint
+                    const response = await fetch('http://localhost:5555/setProfile', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(selectedProfile),
+                    });
+
+                    if (!response.ok) {
+                      const text = await response.text();
+                      let errorMsg = `Failed to set profile (${response.status})`;
+                      try {
+                        const result = JSON.parse(text);
+                        if (result.error) errorMsg = result.error;
+                      } catch {}
+                      throw new Error(errorMsg);
+                    }
+
+                    // Update UI with profile data
                     document.body.style.backgroundColor = selectedProfile.backgroundColour;
                     document.title = `${selectedProfile.name} Bingo`;
                     setCurrentBgColor(selectedProfile.backgroundColour);
@@ -559,20 +584,39 @@ function App() {
                       setLogoSrc(prefix + selectedProfile.base64Image);
                     }
                     setSettingsOpen(false);
+
+                    // Now call resetGame to clear the board
+                    try {
+                      const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+                      if (!resetResponse.ok) throw new Error('Failed to reset game on server');
+                      // Clear UI
+                      setNumber(null);
+                      setCall(null);
+                      setHistory([]);
+                      setHistoryLookup('');
+                      setHistoryLookupFocused(false);
+                    } catch (resetErr) {
+                      setError(resetErr.message);
+                    }
+                  } catch (err) {
+                    setError(err.message || 'Failed to apply profile');
+                    console.error('Error applying profile:', err);
+                  } finally {
+                    setLoading(false);
                   }
                 }}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 6,
                   border: 'none',
-                  backgroundColor: selectedProfile ? '#1976d2' : '#ccc',
+                  backgroundColor: selectedProfile && !loading ? '#1976d2' : '#ccc',
                   color: '#fff',
-                  cursor: selectedProfile ? 'pointer' : 'not-allowed',
+                  cursor: selectedProfile && !loading ? 'pointer' : 'not-allowed',
                   fontSize: 14,
-                  opacity: selectedProfile ? 1 : 0.6
+                  opacity: selectedProfile && !loading ? 1 : 0.6
                 }}
               >
-                Apply
+                {loading ? 'Applying...' : 'Apply'}
               </button>
             </div>
           </div>
