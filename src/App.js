@@ -3,6 +3,9 @@ import Lottie from 'lottie-react';
 import spinnerAnim from './animations/scribe_loading.json';
 import verseFirstLogo from './images/VerseFirst_bingo_logo.png';
 
+// initially display the default logo; may be replaced by profile image
+
+
 function App() {
   // set full-page background color
   useEffect(() => {
@@ -60,6 +63,7 @@ function App() {
   const [profiles, setProfiles] = useState([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [currentBgColor, setCurrentBgColor] = useState('rgb(17,77,16)');
+  const [logoSrc, setLogoSrc] = useState(verseFirstLogo);
   const [createNewOpen, setCreateNewOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileBgColor, setNewProfileBgColor] = useState('');
@@ -237,7 +241,7 @@ function App() {
 
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', marginBottom: -10, margin: 0, padding: 0}}>
-          <img src={verseFirstLogo} alt="VerseFirst" style={{ height: 300, display: 'inline-block' }} />
+          <img src={logoSrc} alt="VerseFirst" style={{ height: 300, display: 'inline-block' }} />
         </h1>
         <button onClick={fetchNumber} disabled={loading}>
           {loading ? 'Fetching...' : 'Generate Number'}
@@ -528,6 +532,13 @@ function App() {
                     document.body.style.backgroundColor = selectedProfile.backgroundColour;
                     document.title = `${selectedProfile.name} Bingo`;
                     setCurrentBgColor(selectedProfile.backgroundColour);
+                    if (selectedProfile.base64Image) {
+                      // assume PNG unless specified; prefix if missing
+                      const prefix = selectedProfile.base64Image.startsWith('data:')
+                        ? ''
+                        : 'data:image/png;base64,';
+                      setLogoSrc(prefix + selectedProfile.base64Image);
+                    }
                     setSettingsOpen(false);
                   }
                 }}
