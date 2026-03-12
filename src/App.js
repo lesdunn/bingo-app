@@ -605,6 +605,7 @@ function App() {
                 <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Name</label>
                 <input
                   type="text"
+                  autoFocus
                   value={newProfileName}
                   onChange={(e) => setNewProfileName(e.target.value)}
                   style={{
