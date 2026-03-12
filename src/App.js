@@ -54,7 +54,7 @@ function App() {
   const [number, setNumber] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [rhyme, setRhyme] = useState(null);
+  const [call, setCall] = useState(null);
   const [history, setHistory] = useState([]); // added history state
   const [historyLookup, setHistoryLookup] = useState('');
   const [historyLookupFocused, setHistoryLookupFocused] = useState(false);
@@ -67,6 +67,8 @@ function App() {
   const [createNewOpen, setCreateNewOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileBgColor, setNewProfileBgColor] = useState('');
+  const [valuesFileNames, setValuesFileNames] = useState([]);
+  const [selectedValuesFile, setSelectedValuesFile] = useState('');
   const [createNewError, setCreateNewError] = useState(null);
   const [createNewLoading, setCreateNewLoading] = useState(false);
 
@@ -90,6 +92,23 @@ function App() {
 
     fetchProfiles();
   }, [settingsOpen]);
+
+  // fetch value file names when create-new dialog opens
+  useEffect(() => {
+    if (!createNewOpen) return;
+    const fetchNames = async () => {
+      try {
+        const resp = await fetch('http://localhost:5555/valueFileNames');
+        if (!resp.ok) throw new Error('Failed to fetch value file names');
+        const data = await resp.json();
+        setValuesFileNames(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching value file names:', err);
+        setValuesFileNames([]);
+      }
+    };
+    fetchNames();
+  }, [createNewOpen]);
 
   // only allow whole numbers in the Check box
   const handleHistoryLookupChange = (e) => {
@@ -134,10 +153,10 @@ function App() {
       try {
         const parsed = JSON.parse(raw);
         value = typeof parsed === 'object' && parsed !== null && 'number' in parsed ? parsed.number : raw;
-        setRhyme(typeof parsed === 'object' && parsed !== null && 'rhyme' in parsed ? parsed.rhyme : null);
+        setCall(typeof parsed === 'object' && parsed !== null && 'call' in parsed ? parsed.call : null);
       } catch {
         value = raw;
-        setRhyme(null);
+        setCall(null);
       }
 
       setNumber(value);
@@ -152,7 +171,7 @@ function App() {
   const resetGame = async () => {
     // clear UI immediately
     setNumber(null);
-    setRhyme(null);
+    setCall(null);
     setHistory([]);
     setError(null);
     // clear the Check... input
@@ -267,7 +286,7 @@ function App() {
           {/* absolutely-centered content box (fixed space, won't affect sibling column) */}
           <div
             style={{
-              /* position the rhyme/number at the top area of the left column
+              /* position the call/number at the top area of the left column
                  so it lines up vertically with the "History" header on the right */
               position: 'absolute',
               top: 0,
@@ -293,8 +312,8 @@ function App() {
               </div>
             ) : number ? (
               <div style={{ textAlign: 'center', pointerEvents: 'auto' }}>
-                {rhyme ? (
-                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8 }}>{rhyme}</div>
+                {call ? (
+                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8 }}>{call}</div>
                 ) : null}
                 <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1 }}>{number}</div>
               </div>
@@ -631,6 +650,30 @@ function App() {
                 />
               </div>
               <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Values File</label>
+                <select
+                  value={selectedValuesFile}
+                  onChange={(e) => setSelectedValuesFile(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {valuesFileNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <div style={{ marginTop: 4, fontSize: 12, color: '#555' }}>
+                  Selected: {selectedValuesFile || '(none)'}
+                </div>
+              </div>
+              <div>
                 <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Background Colour</label>
                 <input
                   type="color"
@@ -676,7 +719,13 @@ function App() {
                     const payload = {
                       name: newProfileName.trim(),
                       backgroundColour: newProfileBgColor.trim(),
+                      valuesFile: selectedValuesFile,
+                      // include old key in case the backend still expects it
+                      valueFile: selectedValuesFile,
+                      // some servers are case-sensitive; make sure we cover common variants
+                      ValuesFile: selectedValuesFile,
                     };
+                    console.log('Creating profile with payload:', payload);
                     const response = await fetch('http://localhost:5555/profile', {
                       method: 'POST',
                       headers: {
