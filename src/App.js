@@ -537,24 +537,101 @@ function App() {
                 borderTop: '1px solid #e0e0e0',
                 display: 'flex',
                 gap: 8,
-                justifyContent: 'flex-start',
+                justifyContent: 'space-between',
+                alignItems: 'center',
                 backgroundColor: '#f5f5f5'
               }}
             >
-              <button
-                onClick={() => setCreateNewOpen(true)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 6,
-                  border: '1px solid #ddd',
-                  backgroundColor: '#fff',
-                  color: '#000',
-                  cursor: 'pointer',
-                  fontSize: 14
-                }}
-              >
-                Create New
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setCreateNewOpen(true)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    backgroundColor: '#fff',
+                    color: '#000',
+                    cursor: 'pointer',
+                    fontSize: 14
+                  }}
+                >
+                  Create New
+                </button>
+                <button
+                  disabled={!selectedProfile || loading}
+                  onClick={async () => {
+                    if (!selectedProfile) return;
+
+                    setLoading(true);
+                    setError(null);
+
+                    try {
+                      // POST the selected profile to setProfile endpoint
+                      const response = await fetch('http://localhost:5555/setProfile', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(selectedProfile),
+                      });
+
+                      if (!response.ok) {
+                        const text = await response.text();
+                        let errorMsg = `Failed to set profile (${response.status})`;
+                        try {
+                          const result = JSON.parse(text);
+                          if (result.error) errorMsg = result.error;
+                        } catch {}
+                        throw new Error(errorMsg);
+                      }
+
+                      // Update UI with profile data
+                      document.body.style.backgroundColor = selectedProfile.backgroundColour;
+                      document.title = `${selectedProfile.name} Bingo`;
+                      setCurrentBgColor(selectedProfile.backgroundColour);
+                      if (selectedProfile.base64Image) {
+                        // assume PNG unless specified; prefix if missing
+                        const prefix = selectedProfile.base64Image.startsWith('data:')
+                          ? ''
+                          : 'data:image/png;base64,';
+                        setLogoSrc(prefix + selectedProfile.base64Image);
+                      }
+                      setSettingsOpen(false);
+
+                      // Now call resetGame to clear the board
+                      try {
+                        const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+                        if (!resetResponse.ok) throw new Error('Failed to reset game on server');
+                        // Clear UI
+                        setNumber(null);
+                        setCall(null);
+                        setHistory([]);
+                        setHistoryLookup('');
+                        setHistoryLookupFocused(false);
+                      } catch (resetErr) {
+                        setError(resetErr.message);
+                      }
+                    } catch (err) {
+                      setError(err.message || 'Failed to apply profile');
+                      console.error('Error applying profile:', err);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: 'none',
+                    backgroundColor: selectedProfile && !loading ? '#1976d2' : '#ccc',
+                    color: '#fff',
+                    cursor: selectedProfile && !loading ? 'pointer' : 'not-allowed',
+                    fontSize: 14,
+                    opacity: selectedProfile && !loading ? 1 : 0.6
+                  }}
+                >
+                  {loading ? 'Applying...' : 'Apply'}
+                </button>
+              </div>
               <button
                 disabled={!selectedProfile || loading}
                 onClick={async () => {
@@ -564,9 +641,8 @@ function App() {
                   setError(null);
 
                   try {
-                    // POST the selected profile to setProfile endpoint
-                    const response = await fetch('http://localhost:5555/setProfile', {
-                      method: 'POST',
+                    const response = await fetch('http://localhost:5555/profile', {
+                      method: 'DELETE',
                       headers: {
                         'Content-Type': 'application/json',
                       },
@@ -575,7 +651,7 @@ function App() {
 
                     if (!response.ok) {
                       const text = await response.text();
-                      let errorMsg = `Failed to set profile (${response.status})`;
+                      let errorMsg = `Failed to delete profile (${response.status})`;
                       try {
                         const result = JSON.parse(text);
                         if (result.error) errorMsg = result.error;
@@ -583,35 +659,20 @@ function App() {
                       throw new Error(errorMsg);
                     }
 
-                    // Update UI with profile data
-                    document.body.style.backgroundColor = selectedProfile.backgroundColour;
-                    document.title = `${selectedProfile.name} Bingo`;
-                    setCurrentBgColor(selectedProfile.backgroundColour);
-                    if (selectedProfile.base64Image) {
-                      // assume PNG unless specified; prefix if missing
-                      const prefix = selectedProfile.base64Image.startsWith('data:')
-                        ? ''
-                        : 'data:image/png;base64,';
-                      setLogoSrc(prefix + selectedProfile.base64Image);
-                    }
-                    setSettingsOpen(false);
-
-                    // Now call resetGame to clear the board
+                    // Refresh profiles list
                     try {
-                      const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
-                      if (!resetResponse.ok) throw new Error('Failed to reset game on server');
-                      // Clear UI
-                      setNumber(null);
-                      setCall(null);
-                      setHistory([]);
-                      setHistoryLookup('');
-                      setHistoryLookupFocused(false);
-                    } catch (resetErr) {
-                      setError(resetErr.message);
+                      const profilesResponse = await fetch('http://localhost:5555/profiles');
+                      if (profilesResponse.ok) {
+                        const data = await profilesResponse.json();
+                        setProfiles(data);
+                        setSelectedProfile(null);
+                      }
+                    } catch (refreshErr) {
+                      console.error('Failed to refresh profiles after deletion', refreshErr);
                     }
                   } catch (err) {
-                    setError(err.message || 'Failed to apply profile');
-                    console.error('Error applying profile:', err);
+                    setError(err.message || 'Failed to delete profile');
+                    console.error('Error deleting profile:', err);
                   } finally {
                     setLoading(false);
                   }
@@ -620,14 +681,14 @@ function App() {
                   padding: '8px 16px',
                   borderRadius: 6,
                   border: 'none',
-                  backgroundColor: selectedProfile && !loading ? '#1976d2' : '#ccc',
+                  backgroundColor: selectedProfile && !loading ? '#d32f2f' : '#ccc',
                   color: '#fff',
                   cursor: selectedProfile && !loading ? 'pointer' : 'not-allowed',
                   fontSize: 14,
                   opacity: selectedProfile && !loading ? 1 : 0.6
                 }}
               >
-                {loading ? 'Applying...' : 'Apply'}
+                {loading ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
