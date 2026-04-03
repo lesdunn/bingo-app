@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Lottie from 'lottie-react';
-import spinnerAnim from './animations/scribe_loading.json';
+import spinnerAnim from './animations/bingo_text.json';
 import verseFirstLogo from './images/VerseFirst_bingo_logo.png';
 
 // initially display the default logo; may be replaced by profile image
@@ -71,8 +71,15 @@ function App() {
   const [selectedValuesFile, setSelectedValuesFile] = useState('');
   const [images, setImages] = useState([]);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [animationFileNames, setAnimationFileNames] = useState([]);
+  const [animations, setAnimations] = useState([]);
+  const [selectedAnimation, setSelectedAnimation] = useState(null);
+  const [selectedAnimationName, setSelectedAnimationName] = useState('');
+  const [selectedAnimationData, setSelectedAnimationData] = useState(null);
   const [createNewError, setCreateNewError] = useState(null);
   const [createNewLoading, setCreateNewLoading] = useState(false);
+  const [spinnerAnimData, setSpinnerAnimData] = useState(spinnerAnim);
+  const [animationKey, setAnimationKey] = useState(0);
 
   // fetch profiles when dialog opens
   useEffect(() => {
@@ -95,7 +102,7 @@ function App() {
     fetchProfiles();
   }, [settingsOpen]);
 
-  // fetch value file names and images when create-new dialog opens
+  // fetch value file names, images, and animations when create-new dialog opens
   useEffect(() => {
     if (!createNewOpen) return;
     const fetchData = async () => {
@@ -117,9 +124,41 @@ function App() {
         console.error('Error fetching images:', err);
         setImages([]);
       }
+      try {
+        const resp = await fetch('http://localhost:5555/animationFileNames');
+        if (!resp.ok) throw new Error('Failed to fetch animation file names');
+        const data = await resp.json();
+        setAnimationFileNames(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching animation file names:', err);
+        setAnimationFileNames([]);
+      }
+      try {
+        const resp = await fetch('http://localhost:5555/animations');
+        if (!resp.ok) throw new Error('Failed to fetch animations');
+        const data = await resp.json();
+        setAnimations(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching animations:', err);
+        setAnimations([]);
+      }
     };
     fetchData();
   }, [createNewOpen]);
+
+  const decodeAnimationValue = (animation) => {
+    if (!animation || !animation.value) return null;
+    try {
+      // Some backends return URL-safe base64; convert if needed
+      const safeBase64 = animation.value.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = safeBase64.padEnd(Math.ceil(safeBase64.length / 4) * 4, '=');
+      const decoded = atob(padded);
+      return JSON.parse(decoded);
+    } catch (err) {
+      console.error('Failed to parse animation value:', err, animation);
+      return null;
+    }
+  };
 
   // only allow whole numbers in the Check box
   const handleHistoryLookupChange = (e) => {
@@ -315,7 +354,8 @@ function App() {
             {loading ? (
               <div style={{ pointerEvents: 'auto' }}>
                 <Lottie
-                  animationData={spinnerAnim}
+                  key={animationKey}
+                  animationData={spinnerAnimData}
                   loop={true}
                   autoplay={true}
                   style={{ width: 320, height: 320, background: 'transparent' }}
@@ -458,6 +498,7 @@ function App() {
               width: '90%',
               maxWidth: 400,
               minHeight: 300,
+              maxHeight: '80vh',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden'
@@ -596,6 +637,26 @@ function App() {
                           : 'data:image/png;base64,';
                         setLogoSrc(prefix + selectedProfile.base64Image);
                       }
+                      if (selectedProfile.animationFile) {
+                        try {
+                          const animResponse = await fetch(`http://localhost:5555/animationValue?fileName=${selectedProfile.animationFile}`);
+                          if (animResponse.ok) {
+                            const animData = await animResponse.json();
+                            setSpinnerAnimData(animData);
+                            setAnimationKey(prev => prev + 1);
+                          } else {
+                            setSpinnerAnimData(spinnerAnim);
+                            setAnimationKey(prev => prev + 1);
+                          }
+                        } catch (animErr) {
+                          console.error('Failed to load animation:', animErr);
+                          setSpinnerAnimData(spinnerAnim);
+                          setAnimationKey(prev => prev + 1);
+                        }
+                      } else {
+                        setSpinnerAnimData(spinnerAnim);
+                        setAnimationKey(prev => prev + 1);
+                      }
                       setSettingsOpen(false);
 
                       // Now call resetGame to clear the board
@@ -720,6 +781,7 @@ function App() {
               width: '90%',
               maxWidth: 400,
               minHeight: 250,
+              maxHeight: '80vh',
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden'
@@ -744,7 +806,8 @@ function App() {
                 padding: 16,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 16
+                gap: 16,
+                overflowY: 'auto'
               }}
             >
               <div>
@@ -829,6 +892,34 @@ function App() {
                 )}
               </div>
               <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Loading Animation</label>
+                <select
+                  value={selectedAnimationName}
+                  onChange={(e) => {
+                    const animName = e.target.value;
+                    const anim = animations.find(a => a.name === animName) || null;
+                    setSelectedAnimationName(animName);
+                    setSelectedAnimation(anim);
+                    setSelectedAnimationData(anim ? decodeAnimationValue(anim) : null);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {animationFileNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+
+              </div>
+              <div>
                 <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Background Colour</label>
                 <input
                   type="color"
@@ -879,11 +970,10 @@ function App() {
                       valueFile: selectedValuesFile,
                       // some servers are case-sensitive; make sure we cover common variants
                       ValuesFile: selectedValuesFile,
+                      animationFile: selectedAnimationName || (selectedAnimation ? selectedAnimation.name : ''),
+                      base64Image: selectedImage ? selectedImage.base64Image : '',
                     };
-                    if (selectedImage) {
-                      payload.base64Image = selectedImage.base64Image;
-                    }
-                    console.log('Creating profile with payload:', payload);
+                    console.log('Creating profile with payload:', payload, 'selectedAnimationName:', selectedAnimationName, 'selectedAnimation:', selectedAnimation);
                     const response = await fetch('http://localhost:5555/profile', {
                       method: 'POST',
                       headers: {
@@ -919,6 +1009,10 @@ function App() {
                     setCreateNewOpen(false);
                     setNewProfileName('');
                     setNewProfileBgColor('');
+                    setSelectedImage(null);
+                    setSelectedAnimation(null);
+                    setSelectedAnimationName('');
+                    setSelectedAnimationData(null);
                     setCreateNewError(null);
                   } catch (err) {
                     setCreateNewError(err.message || 'Unknown error');
@@ -946,7 +1040,7 @@ function App() {
                   setNewProfileName('');
                   setNewProfileBgColor('');
                   setSelectedImage(null);
-                  setSelectedImage(null);
+                  setSelectedAnimation(null);
                   setCreateNewError(null);
                 }}
                 style={{
