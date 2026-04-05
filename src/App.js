@@ -80,6 +80,7 @@ function App() {
   const [createNewLoading, setCreateNewLoading] = useState(false);
   const [spinnerAnimData, setSpinnerAnimData] = useState(spinnerAnim);
   const [animationKey, setAnimationKey] = useState(0);
+  const [logoHeight, setLogoHeight] = useState(300);
 
   // fetch profiles when dialog opens
   useEffect(() => {
@@ -195,6 +196,9 @@ function App() {
 
     try {
       const response = await fetch('http://localhost:5555/api/generateNumber');
+      if (response.status === 204) {
+        throw new Error('All numbers have been called – the game is complete');
+      }
       if (!response.ok) throw new Error('Failed to fetch number');
 
       // read as text then try to parse JSON so this works with both JSON and plain-text responses
@@ -281,13 +285,50 @@ function App() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0px auto', position: 'relative' }}>
+      {/* logo size controls */}
+      <button
+        aria-label="Decrease logo size"
+        style={{
+          position: 'fixed',
+          top: 10,
+          right: 10,
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 24,
+          cursor: 'pointer',
+          padding: 4,
+          zIndex: 1000
+        }}
+        onClick={() => setLogoHeight(prev => prev * 0.97)}
+      >
+        ➖
+      </button>
+      <button
+        aria-label="Increase logo size"
+        style={{
+          position: 'fixed',
+          top: 10,
+          right: 50,
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 24,
+          cursor: 'pointer',
+          padding: 4,
+          zIndex: 1000
+        }}
+        onClick={() => setLogoHeight(prev => prev * 1.03)}
+      >
+        ➕
+      </button>
       {/* settings cog in top-right corner (will open customization popup in future) */}
       <button
         aria-label="Settings"
         style={{
           position: 'fixed',
           top: 10,
-          right: 10,
+          right: 90,
           background: 'transparent',
           border: 'none',
           color: '#fff',
@@ -310,7 +351,7 @@ function App() {
 
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', marginBottom: -10, margin: 0, padding: 0}}>
-          <img src={logoSrc} alt="VerseFirst" style={{ height: 300, display: 'inline-block' }} />
+          <img src={logoSrc} alt="VerseFirst" style={{ height: logoHeight, display: 'inline-block' }} />
         </h1>
         <button onClick={fetchNumber} disabled={loading}>
           {loading ? 'Fetching...' : 'Generate Number'}
