@@ -364,12 +364,12 @@ function App() {
             ) : number ? (
               <div style={{ textAlign: 'center', pointerEvents: 'auto' }}>
                 {call ? (
-                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8 }}>{call}</div>
+                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8, textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>{call}</div>
                 ) : null}
-                <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1 }}>{number}</div>
+                <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1, textShadow: '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000' }}>{number}</div>
               </div>
             ) : (
-              <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, pointerEvents: 'auto' }}>No number generated yet</div>
+              <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, pointerEvents: 'auto', textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>No number generated yet</div>
             )}
           </div>
         </div>
@@ -388,7 +388,7 @@ function App() {
           }}
         >
           {history.length === 0 ? (
-            <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
+            <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>No history yet</div>
           ) : (
             <div style={{ minWidth: 0 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -400,6 +400,7 @@ function App() {
                         textAlign: 'left',
                         padding: 8,
                         color: '#ffffff',
+                        textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -462,7 +463,7 @@ function App() {
                           background: alternateColor,
                         }}
                       >
-                        <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
+                        <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>{n}</td>
                       </tr>
                     );
                   })}
