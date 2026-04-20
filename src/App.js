@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Lottie from 'lottie-react';
-import spinnerAnim from './animations/scribe_loading.json';
+import spinnerAnim from './animations/bingo_text.json';
 import verseFirstLogo from './images/VerseFirst_bingo_logo.png';
+
+// initially display the default logo; may be replaced by profile image
+
 
 function App() {
   // set full-page background color
@@ -51,10 +54,112 @@ function App() {
   const [number, setNumber] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [rhyme, setRhyme] = useState(null);
+  const [call, setCall] = useState(null);
   const [history, setHistory] = useState([]); // added history state
   const [historyLookup, setHistoryLookup] = useState('');
   const [historyLookupFocused, setHistoryLookupFocused] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [profiles, setProfiles] = useState([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [currentBgColor, setCurrentBgColor] = useState('rgb(17,77,16)');
+  const [logoSrc, setLogoSrc] = useState(verseFirstLogo);
+  const [createNewOpen, setCreateNewOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [newProfileBgColor, setNewProfileBgColor] = useState('');
+  const [valuesFileNames, setValuesFileNames] = useState([]);
+  const [selectedValuesFile, setSelectedValuesFile] = useState('');
+  const [images, setImages] = useState([]);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [animationFileNames, setAnimationFileNames] = useState([]);
+  const [animations, setAnimations] = useState([]);
+  const [selectedAnimation, setSelectedAnimation] = useState(null);
+  const [selectedAnimationName, setSelectedAnimationName] = useState('');
+  const [selectedAnimationData, setSelectedAnimationData] = useState(null);
+  const [createNewError, setCreateNewError] = useState(null);
+  const [createNewLoading, setCreateNewLoading] = useState(false);
+  const [spinnerAnimData, setSpinnerAnimData] = useState(spinnerAnim);
+  const [animationKey, setAnimationKey] = useState(0);
+  const [logoHeight, setLogoHeight] = useState(300);
+
+  // fetch profiles when dialog opens
+  useEffect(() => {
+    if (!settingsOpen) return;
+    
+    const fetchProfiles = async () => {
+      setProfilesLoading(true);
+      try {
+        const response = await fetch('http://localhost:5555/profiles');
+        if (!response.ok) throw new Error('Failed to fetch profiles');
+        const data = await response.json();
+        setProfiles(data);
+      } catch (err) {
+        console.error('Error fetching profiles:', err.message);
+      } finally {
+        setProfilesLoading(false);
+      }
+    };
+
+    fetchProfiles();
+  }, [settingsOpen]);
+
+  // fetch value file names, images, and animations when create-new dialog opens
+  useEffect(() => {
+    if (!createNewOpen) return;
+    const fetchData = async () => {
+      try {
+        const resp = await fetch('http://localhost:5555/valueFileNames');
+        if (!resp.ok) throw new Error('Failed to fetch value file names');
+        const data = await resp.json();
+        setValuesFileNames(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching value file names:', err);
+        setValuesFileNames([]);
+      }
+      try {
+        const resp = await fetch('http://localhost:5555/images');
+        if (!resp.ok) throw new Error('Failed to fetch images');
+        const data = await resp.json();
+        setImages(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching images:', err);
+        setImages([]);
+      }
+      try {
+        const resp = await fetch('http://localhost:5555/animationFileNames');
+        if (!resp.ok) throw new Error('Failed to fetch animation file names');
+        const data = await resp.json();
+        setAnimationFileNames(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching animation file names:', err);
+        setAnimationFileNames([]);
+      }
+      try {
+        const resp = await fetch('http://localhost:5555/animations');
+        if (!resp.ok) throw new Error('Failed to fetch animations');
+        const data = await resp.json();
+        setAnimations(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching animations:', err);
+        setAnimations([]);
+      }
+    };
+    fetchData();
+  }, [createNewOpen]);
+
+  const decodeAnimationValue = (animation) => {
+    if (!animation || !animation.value) return null;
+    try {
+      // Some backends return URL-safe base64; convert if needed
+      const safeBase64 = animation.value.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = safeBase64.padEnd(Math.ceil(safeBase64.length / 4) * 4, '=');
+      const decoded = atob(padded);
+      return JSON.parse(decoded);
+    } catch (err) {
+      console.error('Failed to parse animation value:', err, animation);
+      return null;
+    }
+  };
 
   // only allow whole numbers in the Check box
   const handleHistoryLookupChange = (e) => {
@@ -91,6 +196,9 @@ function App() {
 
     try {
       const response = await fetch('http://localhost:5555/api/generateNumber');
+      if (response.status === 204) {
+        throw new Error('All numbers have been called – the game is complete');
+      }
       if (!response.ok) throw new Error('Failed to fetch number');
 
       // read as text then try to parse JSON so this works with both JSON and plain-text responses
@@ -99,10 +207,10 @@ function App() {
       try {
         const parsed = JSON.parse(raw);
         value = typeof parsed === 'object' && parsed !== null && 'number' in parsed ? parsed.number : raw;
-        setRhyme(typeof parsed === 'object' && parsed !== null && 'rhyme' in parsed ? parsed.rhyme : null);
+        setCall(typeof parsed === 'object' && parsed !== null && 'call' in parsed ? parsed.call : null);
       } catch {
         value = raw;
-        setRhyme(null);
+        setCall(null);
       }
 
       setNumber(value);
@@ -117,7 +225,7 @@ function App() {
   const resetGame = async () => {
     // clear UI immediately
     setNumber(null);
-    setRhyme(null);
+    setCall(null);
     setHistory([]);
     setError(null);
     // clear the Check... input
@@ -149,6 +257,9 @@ function App() {
       // only handle space here
       if (!(e.code === 'Space' || e.key === ' ')) return;
 
+      // disable spacebar functionality if any dialog is open
+      if (settingsOpen || createNewOpen) return;
+
       const active = document.activeElement;
       const tag = active && active.tagName;
       const activeExists = Boolean(active);
@@ -170,13 +281,13 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [loading]);
+  }, [loading, settingsOpen, createNewOpen]);
 
   return (
     <div style={{ maxWidth: 900, margin: '0px auto', position: 'relative' }}>
-      {/* settings cog in top-right corner (will open customization popup in future) */}
+      {/* logo size controls */}
       <button
-        aria-label="Settings"
+        aria-label="Decrease logo size"
         style={{
           position: 'fixed',
           top: 10,
@@ -189,9 +300,44 @@ function App() {
           padding: 4,
           zIndex: 1000
         }}
-        onClick={() => {
-          /* TODO: open settings popup */
+        onClick={() => setLogoHeight(prev => prev * 0.97)}
+      >
+        ➖
+      </button>
+      <button
+        aria-label="Increase logo size"
+        style={{
+          position: 'fixed',
+          top: 10,
+          right: 50,
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 24,
+          cursor: 'pointer',
+          padding: 4,
+          zIndex: 1000
         }}
+        onClick={() => setLogoHeight(prev => prev * 1.03)}
+      >
+        ➕
+      </button>
+      {/* settings cog in top-right corner (will open customization popup in future) */}
+      <button
+        aria-label="Settings"
+        style={{
+          position: 'fixed',
+          top: 10,
+          right: 90,
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 24,
+          cursor: 'pointer',
+          padding: 4,
+          zIndex: 1000
+        }}
+        onClick={() => setSettingsOpen(true)}
       >
         ⚙️
       </button>
@@ -205,7 +351,7 @@ function App() {
 
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: 2, justifyContent: 'center', marginBottom: -10, margin: 0, padding: 0}}>
-          <img src={verseFirstLogo} alt="VerseFirst" style={{ height: 300, display: 'inline-block' }} />
+          <img src={logoSrc} alt="VerseFirst" style={{ height: logoHeight, display: 'inline-block' }} />
         </h1>
         <button onClick={fetchNumber} disabled={loading}>
           {loading ? 'Fetching...' : 'Generate Number'}
@@ -231,7 +377,7 @@ function App() {
           {/* absolutely-centered content box (fixed space, won't affect sibling column) */}
           <div
             style={{
-              /* position the rhyme/number at the top area of the left column
+              /* position the call/number at the top area of the left column
                  so it lines up vertically with the "History" header on the right */
               position: 'absolute',
               top: 0,
@@ -249,7 +395,8 @@ function App() {
             {loading ? (
               <div style={{ pointerEvents: 'auto' }}>
                 <Lottie
-                  animationData={spinnerAnim}
+                  key={animationKey}
+                  animationData={spinnerAnimData}
                   loop={true}
                   autoplay={true}
                   style={{ width: 320, height: 320, background: 'transparent' }}
@@ -257,13 +404,13 @@ function App() {
               </div>
             ) : number ? (
               <div style={{ textAlign: 'center', pointerEvents: 'auto' }}>
-                {rhyme ? (
-                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8 }}>{rhyme}</div>
+                {call ? (
+                  <div style={{ fontSize: 36, color: '#ffffff', opacity: 0.9, marginBottom: 8, textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>{call}</div>
                 ) : null}
-                <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1 }}>{number}</div>
+                <div style={{ fontSize: 240, fontWeight: 700, lineHeight: 1, textShadow: '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000' }}>{number}</div>
               </div>
             ) : (
-              <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, pointerEvents: 'auto' }}>No number generated yet</div>
+              <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, pointerEvents: 'auto', textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>No number generated yet</div>
             )}
           </div>
         </div>
@@ -282,7 +429,7 @@ function App() {
           }}
         >
           {history.length === 0 ? (
-            <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20 }}>No history yet</div>
+            <div style={{ color: '#ffffff', fontStyle: 'italic', fontSize: 20, textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>No history yet</div>
           ) : (
             <div style={{ minWidth: 0 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -294,6 +441,7 @@ function App() {
                         textAlign: 'left',
                         padding: 8,
                         color: '#ffffff',
+                        textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
@@ -347,22 +495,612 @@ function App() {
                </tr>
              </thead>
                 <tbody>
-                  {history.map((n, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        background: idx % 2 === 0 ? 'rgb(17,77,16)' : '#166b2a',
-                      }}
-                    >
-                      <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff' }}>{n}</td>
-                    </tr>
-                  ))}
+                  {history.map((n, idx) => {
+                    const alternateColor = idx % 2 === 0 ? currentBgColor : 'rgba(0, 0, 0, 0.1)';
+                    return (
+                      <tr
+                        key={idx}
+                        style={{
+                          background: alternateColor,
+                        }}
+                      >
+                        <td style={{ padding: 8, borderBottom: '1px solid rgba(255,255,255,0.08)', color: '#ffffff', textShadow: '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000' }}>{n}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {settingsOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000
+          }}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+              width: '90%',
+              maxWidth: 400,
+              minHeight: 300,
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: 16,
+                borderBottom: '1px solid #e0e0e0',
+                backgroundColor: '#f5f5f5',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000' }}>Profiles</h2>
+              <button
+                onClick={() => setSettingsOpen(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#ff3b30',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  padding: 0,
+                  width: 32,
+                  height: 32,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* List */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: 16
+              }}
+            >
+              {profilesLoading ? (
+                <div style={{ color: '#666', textAlign: 'center' }}>Loading profiles...</div>
+              ) : profiles.length === 0 ? (
+                <div style={{ color: '#666', textAlign: 'center' }}>No profiles found</div>
+              ) : (
+                profiles.map((profile) => (
+                  <div
+                    key={profile.name}
+                    onClick={() => setSelectedProfile(profile)}
+                    style={{
+                      padding: 12,
+                      marginBottom: 8,
+                      borderRadius: 6,
+                      border: selectedProfile?.name === profile.name ? '2px solid #1976d2' : '1px solid #ddd',
+                      backgroundColor: selectedProfile?.name === profile.name ? '#e3f2fd' : '#fff',
+                      cursor: 'pointer',
+                      color: '#000',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {profile.name}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer with buttons */}
+            <div
+              style={{
+                padding: 16,
+                borderTop: '1px solid #e0e0e0',
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setCreateNewOpen(true)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    backgroundColor: '#fff',
+                    color: '#000',
+                    cursor: 'pointer',
+                    fontSize: 14
+                  }}
+                >
+                  Create New
+                </button>
+                <button
+                  disabled={!selectedProfile || loading}
+                  onClick={async () => {
+                    if (!selectedProfile) return;
+
+                    setLoading(true);
+                    setError(null);
+
+                    try {
+                      // POST the selected profile to setProfile endpoint
+                      const response = await fetch('http://localhost:5555/setProfile', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(selectedProfile),
+                      });
+
+                      if (!response.ok) {
+                        const text = await response.text();
+                        let errorMsg = `Failed to set profile (${response.status})`;
+                        try {
+                          const result = JSON.parse(text);
+                          if (result.error) errorMsg = result.error;
+                        } catch {}
+                        throw new Error(errorMsg);
+                      }
+
+                      // Update UI with profile data
+                      document.body.style.backgroundColor = selectedProfile.backgroundColour;
+                      document.title = `${selectedProfile.name} Bingo`;
+                      setCurrentBgColor(selectedProfile.backgroundColour);
+                      if (selectedProfile.base64Image) {
+                        // assume PNG unless specified; prefix if missing
+                        const prefix = selectedProfile.base64Image.startsWith('data:')
+                          ? ''
+                          : 'data:image/png;base64,';
+                        setLogoSrc(prefix + selectedProfile.base64Image);
+                      }
+                      if (selectedProfile.animationFile) {
+                        try {
+                          const animResponse = await fetch(`http://localhost:5555/animationValue?fileName=${selectedProfile.animationFile}`);
+                          if (animResponse.ok) {
+                            const animData = await animResponse.json();
+                            setSpinnerAnimData(animData);
+                            setAnimationKey(prev => prev + 1);
+                          } else {
+                            setSpinnerAnimData(spinnerAnim);
+                            setAnimationKey(prev => prev + 1);
+                          }
+                        } catch (animErr) {
+                          console.error('Failed to load animation:', animErr);
+                          setSpinnerAnimData(spinnerAnim);
+                          setAnimationKey(prev => prev + 1);
+                        }
+                      } else {
+                        setSpinnerAnimData(spinnerAnim);
+                        setAnimationKey(prev => prev + 1);
+                      }
+                      setSettingsOpen(false);
+
+                      // Now call resetGame to clear the board
+                      try {
+                        const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+                        if (!resetResponse.ok) throw new Error('Failed to reset game on server');
+                        // Clear UI
+                        setNumber(null);
+                        setCall(null);
+                        setHistory([]);
+                        setHistoryLookup('');
+                        setHistoryLookupFocused(false);
+                      } catch (resetErr) {
+                        setError(resetErr.message);
+                      }
+                    } catch (err) {
+                      setError(err.message || 'Failed to apply profile');
+                      console.error('Error applying profile:', err);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: 'none',
+                    backgroundColor: selectedProfile && !loading ? '#1976d2' : '#ccc',
+                    color: '#fff',
+                    cursor: selectedProfile && !loading ? 'pointer' : 'not-allowed',
+                    fontSize: 14,
+                    opacity: selectedProfile && !loading ? 1 : 0.6
+                  }}
+                >
+                  {loading ? 'Applying...' : 'Apply'}
+                </button>
+              </div>
+              <button
+                disabled={!selectedProfile || loading}
+                onClick={async () => {
+                  if (!selectedProfile) return;
+
+                  setLoading(true);
+                  setError(null);
+
+                  try {
+                    const response = await fetch('http://localhost:5555/profile', {
+                      method: 'DELETE',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(selectedProfile),
+                    });
+
+                    if (!response.ok) {
+                      const text = await response.text();
+                      let errorMsg = `Failed to delete profile (${response.status})`;
+                      try {
+                        const result = JSON.parse(text);
+                        if (result.error) errorMsg = result.error;
+                      } catch {}
+                      throw new Error(errorMsg);
+                    }
+
+                    // Refresh profiles list
+                    try {
+                      const profilesResponse = await fetch('http://localhost:5555/profiles');
+                      if (profilesResponse.ok) {
+                        const data = await profilesResponse.json();
+                        setProfiles(data);
+                        setSelectedProfile(null);
+                      }
+                    } catch (refreshErr) {
+                      console.error('Failed to refresh profiles after deletion', refreshErr);
+                    }
+                  } catch (err) {
+                    setError(err.message || 'Failed to delete profile');
+                    console.error('Error deleting profile:', err);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  backgroundColor: selectedProfile && !loading ? '#d32f2f' : '#ccc',
+                  color: '#fff',
+                  cursor: selectedProfile && !loading ? 'pointer' : 'not-allowed',
+                  fontSize: 14,
+                  opacity: selectedProfile && !loading ? 1 : 0.6
+                }}
+              >
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Profile Modal */}
+      {createNewOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000
+          }}
+          onClick={() => setCreateNewOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+              width: '90%',
+              maxWidth: 400,
+              minHeight: 250,
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: 16,
+                borderBottom: '1px solid #e0e0e0',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000' }}>Create New Profile</h2>
+            </div>
+
+            {/* Form */}
+            <div
+              style={{
+                flex: 1,
+                padding: 16,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                overflowY: 'auto'
+              }}
+            >
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Name</label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={newProfileName}
+                  onChange={(e) => setNewProfileName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Values File</label>
+                <select
+                  value={selectedValuesFile}
+                  onChange={(e) => setSelectedValuesFile(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {valuesFileNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+                <div style={{ marginTop: 4, fontSize: 12, color: '#555' }}>
+                  Selected: {selectedValuesFile || '(none)'}
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Profile Image</label>
+                <select
+                  value={selectedImage ? selectedImage.name : ''}
+                  onChange={(e) => {
+                    const imageName = e.target.value;
+                    const img = images.find(i => i.name === imageName) || null;
+                    setSelectedImage(img);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {images.map(img => (
+                    <option key={img.name} value={img.name}>{img.name}</option>
+                  ))}
+                </select>
+                {selectedImage && (
+                  <div style={{ marginTop: 8, textAlign: 'center' }}>
+                    <img
+                      src={selectedImage.base64Image.startsWith('data:') ? selectedImage.base64Image : `data:image/png;base64,${selectedImage.base64Image}`}
+                      alt={selectedImage.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: 120,
+                        borderRadius: 6,
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Loading Animation</label>
+                <select
+                  value={selectedAnimationName}
+                  onChange={(e) => {
+                    const animName = e.target.value;
+                    const anim = animations.find(a => a.name === animName) || null;
+                    setSelectedAnimationName(animName);
+                    setSelectedAnimation(anim);
+                    setSelectedAnimationData(anim ? decodeAnimationValue(anim) : null);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    outline: 'none',
+                    fontSize: 14,
+                    color: '#000'
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {animationFileNames.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                </select>
+
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, color: '#000', fontSize: 14 }}>Background Colour</label>
+                <input
+                  type="color"
+                  value={newProfileBgColor || '#ffffff'}
+                  onChange={(e) => setNewProfileBgColor(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '4px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    cursor: 'pointer',
+                    height: 40
+                  }}
+                />
+              </div>
+              {createNewError && (
+                <div style={{ color: '#ff3b30', fontSize: 14 }}>
+                  {createNewError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer with buttons */}
+            <div
+              style={{
+                padding: 16,
+                borderTop: '1px solid #e0e0e0',
+                display: 'flex',
+                gap: 8,
+                justifyContent: 'flex-start',
+                backgroundColor: '#f5f5f5'
+              }}
+            >
+              <button
+                disabled={!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading}
+                onClick={async () => {
+                  if (!newProfileName.trim() || !newProfileBgColor.trim()) return;
+
+                  setCreateNewLoading(true);
+                  setCreateNewError(null);
+
+                  try {
+                    const payload = {
+                      name: newProfileName.trim(),
+                      backgroundColour: newProfileBgColor.trim(),
+                      valuesFile: selectedValuesFile,
+                      // include old key in case the backend still expects it
+                      valueFile: selectedValuesFile,
+                      // some servers are case-sensitive; make sure we cover common variants
+                      ValuesFile: selectedValuesFile,
+                      animationFile: selectedAnimationName || (selectedAnimation ? selectedAnimation.name : ''),
+                      base64Image: selectedImage ? selectedImage.base64Image : '',
+                    };
+                    console.log('Creating profile with payload:', payload, 'selectedAnimationName:', selectedAnimationName, 'selectedAnimation:', selectedAnimation);
+                    const response = await fetch('http://localhost:5555/profile', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(payload),
+                    });
+
+                    const text = await response.text();
+                    let result;
+                    try {
+                      result = JSON.parse(text);
+                    } catch {
+                      result = text;
+                    }
+                    if (!response.ok) {
+                      const message = (result && result.error) ? result.error : (typeof result === 'string' ? result : 'Failed to create profile');
+                      throw new Error(message);
+                    }
+
+                    // Refresh profiles list (ignore errors here)
+                    try {
+                      const profilesResponse = await fetch('http://localhost:5555/profiles');
+                      if (profilesResponse.ok) {
+                        const data = await profilesResponse.json();
+                        setProfiles(data);
+                      }
+                    } catch (refreshErr) {
+                      console.error('Failed to refresh profiles after creation', refreshErr);
+                    }
+
+                    // Close dialog and reset form
+                    setCreateNewOpen(false);
+                    setNewProfileName('');
+                    setNewProfileBgColor('');
+                    setSelectedImage(null);
+                    setSelectedAnimation(null);
+                    setSelectedAnimationName('');
+                    setSelectedAnimationData(null);
+                    setCreateNewError(null);
+                  } catch (err) {
+                    setCreateNewError(err.message || 'Unknown error');
+                    console.error('Error creating profile', err);
+                  } finally {
+                    setCreateNewLoading(false);
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  backgroundColor: (!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading) ? '#ccc' : '#1976d2',
+                  color: '#fff',
+                  cursor: (!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading) ? 'not-allowed' : 'pointer',
+                  fontSize: 14,
+                  opacity: (!newProfileName.trim() || !newProfileBgColor.trim() || createNewLoading) ? 0.6 : 1
+                }}
+              >
+                {createNewLoading ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={() => {
+                  setCreateNewOpen(false);
+                  setNewProfileName('');
+                  setNewProfileBgColor('');
+                  setSelectedImage(null);
+                  setSelectedAnimation(null);
+                  setCreateNewError(null);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: '1px solid #ddd',
+                  backgroundColor: '#fff',
+                  color: '#000',
+                  cursor: 'pointer',
+                  fontSize: 14
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
