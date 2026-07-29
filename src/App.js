@@ -1005,6 +1005,7 @@ function App() {
 
                   try {
                     const payload = {
+                      uuid: window.crypto?.randomUUID ? window.crypto.randomUUID() : `uuid-${Date.now()}-${Math.random().toString(16).slice(2)}`,
                       name: newProfileName.trim(),
                       backgroundColour: newProfileBgColor.trim(),
                       valuesFile: selectedValuesFile,
