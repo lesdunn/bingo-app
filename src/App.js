@@ -64,7 +64,10 @@ function App() {
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [currentBgColor, setCurrentBgColor] = useState('rgb(17,77,16)');
   const [logoSrc, setLogoSrc] = useState(verseFirstLogo);
+  const [currentProfile, setCurrentProfile] = useState(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [createNewOpen, setCreateNewOpen] = useState(false);
+  const [editingProfileUuid, setEditingProfileUuid] = useState(null);
   const [newProfileName, setNewProfileName] = useState('');
   const [newProfileBgColor, setNewProfileBgColor] = useState('');
   const [valuesFileNames, setValuesFileNames] = useState([]);
@@ -81,6 +84,20 @@ function App() {
   const [spinnerAnimData, setSpinnerAnimData] = useState(spinnerAnim);
   const [animationKey, setAnimationKey] = useState(0);
   const [logoHeight, setLogoHeight] = useState(300);
+
+  const resetCreateModal = () => {
+    setCreateNewOpen(false);
+    setEditingProfileUuid(null);
+    setNewProfileName('');
+    setNewProfileBgColor('');
+    setSelectedValuesFile('');
+    setSelectedImage(null);
+    setSelectedAnimation(null);
+    setSelectedAnimationName('');
+    setSelectedAnimationData(null);
+    setCreateNewError(null);
+    setCreateNewLoading(false);
+  };
 
   // fetch profiles when dialog opens
   useEffect(() => {
@@ -102,6 +119,41 @@ function App() {
 
     fetchProfiles();
   }, [settingsOpen]);
+
+  const applyProfileToUI = async (profile) => {
+    if (!profile) return;
+    try {
+      document.body.style.backgroundColor = profile.backgroundColour || profile.backgroundColor || currentBgColor;
+      document.title = `${profile.name || 'Profile'} Bingo`;
+      setCurrentBgColor(profile.backgroundColour || profile.backgroundColor || currentBgColor);
+      if (profile.base64Image) {
+        const prefix = profile.base64Image.startsWith('data:') ? '' : 'data:image/png;base64,';
+        setLogoSrc(prefix + profile.base64Image);
+      }
+      if (profile.animationFile) {
+        try {
+          const animResponse = await fetch(`http://localhost:5555/animationValue?fileName=${profile.animationFile}`);
+          if (animResponse.ok) {
+            const animData = await animResponse.json();
+            setSpinnerAnimData(animData);
+            setAnimationKey(prev => prev + 1);
+          } else {
+            setSpinnerAnimData(spinnerAnim);
+            setAnimationKey(prev => prev + 1);
+          }
+        } catch (e) {
+          console.error('Failed to load animation for applyProfileToUI:', e);
+          setSpinnerAnimData(spinnerAnim);
+          setAnimationKey(prev => prev + 1);
+        }
+      } else {
+        setSpinnerAnimData(spinnerAnim);
+        setAnimationKey(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error('applyProfileToUI error:', err);
+    }
+  };
 
   // fetch value file names, images, and animations when create-new dialog opens
   useEffect(() => {
@@ -146,6 +198,13 @@ function App() {
     };
     fetchData();
   }, [createNewOpen]);
+
+  useEffect(() => {
+    if (!createNewOpen || !selectedAnimationName) return;
+    const matchingAnimation = animations.find(a => a.name === selectedAnimationName) || null;
+    setSelectedAnimation(matchingAnimation);
+    setSelectedAnimationData(matchingAnimation ? decodeAnimationValue(matchingAnimation) : null);
+  }, [createNewOpen, selectedAnimationName, animations]);
 
   const decodeAnimationValue = (animation) => {
     if (!animation || !animation.value) return null;
@@ -356,7 +415,11 @@ function App() {
         <button onClick={fetchNumber} disabled={loading}>
           {loading ? 'Fetching...' : 'Generate Number'}
         </button>
-        <button onClick={resetGame} disabled={loading} style={{ marginLeft: 8 }}>
+        <button
+          onClick={() => setResetConfirmOpen(true)}
+          disabled={loading}
+          style={{ marginLeft: 8 }}
+        >
           Reset Game
         </button>
         {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -627,7 +690,18 @@ function App() {
             >
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
-                  onClick={() => setCreateNewOpen(true)}
+                  onClick={() => {
+                    setEditingProfileUuid(null);
+                    setNewProfileName('');
+                    setNewProfileBgColor('');
+                    setSelectedValuesFile('');
+                    setSelectedImage(null);
+                    setSelectedAnimation(null);
+                    setSelectedAnimationName('');
+                    setSelectedAnimationData(null);
+                    setCreateNewError(null);
+                    setCreateNewOpen(true);
+                  }}
                   style={{
                     padding: '8px 16px',
                     borderRadius: 6,
@@ -639,6 +713,36 @@ function App() {
                   }}
                 >
                   Create New
+                </button>
+                <button
+                  disabled={!selectedProfile || loading}
+                  onClick={() => {
+                    if (!selectedProfile) return;
+                    setEditingProfileUuid(selectedProfile.uuid || null);
+                    setNewProfileName(selectedProfile.name || '');
+                    setNewProfileBgColor(selectedProfile.backgroundColour || '');
+                    setSelectedValuesFile(selectedProfile.valuesFile || selectedProfile.valueFile || selectedProfile.ValuesFile || '');
+                    const matchingImage = images.find(i => i.base64Image === selectedProfile.base64Image || i.name === selectedProfile.imageName);
+                    setSelectedImage(matchingImage || (selectedProfile.base64Image ? { name: '', base64Image: selectedProfile.base64Image } : null));
+                    setSelectedAnimationName(selectedProfile.animationFile || '');
+                    const matchingAnimation = animations.find(a => a.name === (selectedProfile.animationFile || '')) || null;
+                    setSelectedAnimation(matchingAnimation);
+                    setSelectedAnimationData(matchingAnimation ? decodeAnimationValue(matchingAnimation) : null);
+                    setCreateNewError(null);
+                    setCreateNewOpen(true);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: '1px solid #ddd',
+                    backgroundColor: '#fff',
+                    color: '#000',
+                    cursor: selectedProfile && !loading ? 'pointer' : 'not-allowed',
+                    fontSize: 14,
+                    opacity: selectedProfile && !loading ? 1 : 0.6
+                  }}
+                >
+                  Edit
                 </button>
                 <button
                   disabled={!selectedProfile || loading}
@@ -668,36 +772,12 @@ function App() {
                         throw new Error(errorMsg);
                       }
 
-                      // Update UI with profile data
-                      document.body.style.backgroundColor = selectedProfile.backgroundColour;
-                      document.title = `${selectedProfile.name} Bingo`;
-                      setCurrentBgColor(selectedProfile.backgroundColour);
-                      if (selectedProfile.base64Image) {
-                        // assume PNG unless specified; prefix if missing
-                        const prefix = selectedProfile.base64Image.startsWith('data:')
-                          ? ''
-                          : 'data:image/png;base64,';
-                        setLogoSrc(prefix + selectedProfile.base64Image);
-                      }
-                      if (selectedProfile.animationFile) {
-                        try {
-                          const animResponse = await fetch(`http://localhost:5555/animationValue?fileName=${selectedProfile.animationFile}`);
-                          if (animResponse.ok) {
-                            const animData = await animResponse.json();
-                            setSpinnerAnimData(animData);
-                            setAnimationKey(prev => prev + 1);
-                          } else {
-                            setSpinnerAnimData(spinnerAnim);
-                            setAnimationKey(prev => prev + 1);
-                          }
-                        } catch (animErr) {
-                          console.error('Failed to load animation:', animErr);
-                          setSpinnerAnimData(spinnerAnim);
-                          setAnimationKey(prev => prev + 1);
-                        }
-                      } else {
-                        setSpinnerAnimData(spinnerAnim);
-                        setAnimationKey(prev => prev + 1);
+                      // Apply profile to UI and remember it as current
+                      try {
+                        await applyProfileToUI(selectedProfile);
+                        setCurrentProfile(selectedProfile);
+                      } catch (uiErr) {
+                        console.error('Failed to apply profile to UI:', uiErr);
                       }
                       setSettingsOpen(false);
 
@@ -813,7 +893,7 @@ function App() {
             justifyContent: 'center',
             zIndex: 3000
           }}
-          onClick={() => setCreateNewOpen(false)}
+          onClick={resetCreateModal}
         >
           <div
             style={{
@@ -826,6 +906,7 @@ function App() {
               maxHeight: '80vh',
               display: 'flex',
               flexDirection: 'column',
+              color: '#000',
               overflow: 'hidden'
             }}
             onClick={(e) => e.stopPropagation()}
@@ -838,7 +919,7 @@ function App() {
                 backgroundColor: '#f5f5f5'
               }}
             >
-              <h2 style={{ margin: 0, fontSize: 18, color: '#000' }}>Create New Profile</h2>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#000' }}>{editingProfileUuid ? 'Edit Profile' : 'Create New Profile'}</h2>
             </div>
 
             {/* Form */}
@@ -1005,7 +1086,7 @@ function App() {
 
                   try {
                     const payload = {
-                      uuid: window.crypto?.randomUUID ? window.crypto.randomUUID() : `uuid-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                      uuid: editingProfileUuid || (window.crypto?.randomUUID ? window.crypto.randomUUID() : `uuid-${Date.now()}-${Math.random().toString(16).slice(2)}`),
                       name: newProfileName.trim(),
                       backgroundColour: newProfileBgColor.trim(),
                       valuesFile: selectedValuesFile,
@@ -1016,8 +1097,9 @@ function App() {
                       animationFile: selectedAnimationName || (selectedAnimation ? selectedAnimation.name : ''),
                       base64Image: selectedImage ? selectedImage.base64Image : '',
                     };
-                    console.log('Creating profile with payload:', payload, 'selectedAnimationName:', selectedAnimationName, 'selectedAnimation:', selectedAnimation);
-                    const response = await fetch('http://localhost:5555/profile', {
+                    const endpoint = editingProfileUuid ? 'http://localhost:5555/updateProfile' : 'http://localhost:5555/profile';
+                    console.log('Saving profile with payload:', payload, 'endpoint:', endpoint, 'selectedAnimationName:', selectedAnimationName, 'selectedAnimation:', selectedAnimation);
+                    const response = await fetch(endpoint, {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',
@@ -1037,26 +1119,79 @@ function App() {
                       throw new Error(message);
                     }
 
-                    // Refresh profiles list (ignore errors here)
+                    // Refresh profiles list (ignore errors here) and update selected/current profile
                     try {
                       const profilesResponse = await fetch('http://localhost:5555/profiles');
                       if (profilesResponse.ok) {
                         const data = await profilesResponse.json();
                         setProfiles(data);
+                        if (editingProfileUuid) {
+                          const updated = data.find(p => p.uuid === editingProfileUuid) || null;
+                          if (updated) {
+                            setSelectedProfile(updated);
+                            // if the edited profile is currently applied, update UI immediately
+                            if (currentProfile && currentProfile.uuid === editingProfileUuid) {
+                              try {
+                                await applyProfileToUI(updated);
+                                setCurrentProfile(updated);
+                              } catch (uiErr) {
+                                console.error('Failed to reapply updated profile to UI:', uiErr);
+                              }
+                            }
+                          }
+                        }
                       }
                     } catch (refreshErr) {
                       console.error('Failed to refresh profiles after creation', refreshErr);
                     }
 
+                    // If we edited the currently-applied profile, re-run the Apply flow so it behaves identically
+                    if (editingProfileUuid && currentProfile && editingProfileUuid === currentProfile.uuid) {
+                      try {
+                        setLoading(true);
+                        setError(null);
+                        const applyResp = await fetch('http://localhost:5555/setProfile', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload),
+                        });
+                        if (!applyResp.ok) {
+                          const txt = await applyResp.text();
+                          let msg = `Failed to apply profile (${applyResp.status})`;
+                          try { const r = JSON.parse(txt); if (r && r.error) msg = r.error; } catch {}
+                          throw new Error(msg);
+                        }
+
+                        // Update UI with new profile data
+                        try {
+                          await applyProfileToUI(payload);
+                          setCurrentProfile(payload);
+                        } catch (uiErr) {
+                          console.error('Failed to apply updated profile to UI after setProfile:', uiErr);
+                        }
+
+                        // Now call resetGame to clear the board (same as Apply)
+                        try {
+                          const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+                          if (!resetResponse.ok) throw new Error('Failed to reset game on server');
+                          setNumber(null);
+                          setCall(null);
+                          setHistory([]);
+                          setHistoryLookup('');
+                          setHistoryLookupFocused(false);
+                        } catch (resetErr) {
+                          setError(resetErr.message);
+                        }
+                      } catch (reapplyErr) {
+                        console.error('Failed to reapply updated profile via setProfile:', reapplyErr);
+                        setError(reapplyErr.message || 'Failed to reapply profile');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }
+
                     // Close dialog and reset form
-                    setCreateNewOpen(false);
-                    setNewProfileName('');
-                    setNewProfileBgColor('');
-                    setSelectedImage(null);
-                    setSelectedAnimation(null);
-                    setSelectedAnimationName('');
-                    setSelectedAnimationData(null);
-                    setCreateNewError(null);
+                    resetCreateModal();
                   } catch (err) {
                     setCreateNewError(err.message || 'Unknown error');
                     console.error('Error creating profile', err);
@@ -1078,14 +1213,7 @@ function App() {
                 {createNewLoading ? 'Saving...' : 'Save'}
               </button>
               <button
-                onClick={() => {
-                  setCreateNewOpen(false);
-                  setNewProfileName('');
-                  setNewProfileBgColor('');
-                  setSelectedImage(null);
-                  setSelectedAnimation(null);
-                  setCreateNewError(null);
-                }}
+                onClick={resetCreateModal}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 6,
@@ -1097,6 +1225,62 @@ function App() {
                 }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reset confirmation modal */}
+      {resetConfirmOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 4000
+          }}
+          onClick={() => setResetConfirmOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#fff',
+              padding: 20,
+              borderRadius: 8,
+              width: '90%',
+              maxWidth: 420,
+              boxShadow: '0 6px 24px rgba(0,0,0,0.25)'
+            
+              , color: '#000'
+            }}
+          >
+            <h3 style={{ margin: 0, marginBottom: 12 }}>Reset Game?</h3>
+            <p style={{ marginTop: 0, marginBottom: 16 }}>This will clear the board. Are you sure?</p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setResetConfirmOpen(false)}
+                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setResetConfirmOpen(false);
+                  try {
+                    await resetGame();
+                  } catch (e) {
+                    console.error('Reset game failed:', e);
+                  }
+                }}
+                style={{ padding: '8px 12px', borderRadius: 6, border: 'none', background: '#d32f2f', color: '#fff', cursor: 'pointer' }}
+              >
+                Reset Game
               </button>
             </div>
           </div>
