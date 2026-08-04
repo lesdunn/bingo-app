@@ -106,7 +106,7 @@ function App() {
     const fetchProfiles = async () => {
       setProfilesLoading(true);
       try {
-        const response = await fetch('http://localhost:5555/api/profiles');
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/profiles`);
         if (!response.ok) throw new Error('Failed to fetch profiles');
         const data = await response.json();
         setProfiles(data);
@@ -132,7 +132,7 @@ function App() {
       }
       if (profile.animationFile) {
         try {
-          const animResponse = await fetch(`http://localhost:5555/api/animationValue?fileName=${profile.animationFile}`);
+          const animResponse = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/animationValue?fileName=${profile.animationFile}`);
           if (animResponse.ok) {
             const animData = await animResponse.json();
             setSpinnerAnimData(animData);
@@ -160,7 +160,7 @@ function App() {
     if (!createNewOpen) return;
     const fetchData = async () => {
       try {
-        const resp = await fetch('http://localhost:5555/api/valueFileNames');
+        const resp = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/valueFileNames`);
         if (!resp.ok) throw new Error('Failed to fetch value file names');
         const data = await resp.json();
         setValuesFileNames(Array.isArray(data) ? data : []);
@@ -169,7 +169,7 @@ function App() {
         setValuesFileNames([]);
       }
       try {
-        const resp = await fetch('http://localhost:5555/api/images');
+        const resp = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/images`);
         if (!resp.ok) throw new Error('Failed to fetch images');
         const data = await resp.json();
         setImages(Array.isArray(data) ? data : []);
@@ -178,7 +178,7 @@ function App() {
         setImages([]);
       }
       try {
-        const resp = await fetch('http://localhost:5555/api/animationFileNames');
+        const resp = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/animationFileNames`);
         if (!resp.ok) throw new Error('Failed to fetch animation file names');
         const data = await resp.json();
         setAnimationFileNames(Array.isArray(data) ? data : []);
@@ -187,7 +187,7 @@ function App() {
         setAnimationFileNames([]);
       }
       try {
-        const resp = await fetch('http://localhost:5555/api/animations');
+        const resp = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/animations`);
         if (!resp.ok) throw new Error('Failed to fetch animations');
         const data = await resp.json();
         setAnimations(Array.isArray(data) ? data : []);
@@ -254,7 +254,7 @@ function App() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:5555/api/generateNumber');
+      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/generateNumber`);
       if (response.status === 204) {
         throw new Error('All numbers have been called – the game is complete');
       }
@@ -294,7 +294,7 @@ function App() {
     // still notify server; keep loading indicator while request in flight
     setLoading(true);
     try {
-      const resp = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+      const resp = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/resetGame`, { method: 'POST' });
       if (!resp.ok) throw new Error('Failed to reset game on server');
       // server reset succeeded — UI already cleared
     } catch (err) {
@@ -754,7 +754,7 @@ function App() {
 
                     try {
                       // POST the selected profile to setProfile endpoint
-                      const response = await fetch('http://localhost:5555/api/setProfile', {
+                      const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/setProfile`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -783,7 +783,7 @@ function App() {
 
                       // Now call resetGame to clear the board
                       try {
-                        const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+                        const resetResponse = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/resetGame`, { method: 'POST' });
                         if (!resetResponse.ok) throw new Error('Failed to reset game on server');
                         // Clear UI
                         setNumber(null);
@@ -824,7 +824,7 @@ function App() {
                   setError(null);
 
                   try {
-                    const response = await fetch('http://localhost:5555/api/profile', {
+                    const response = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/profile`, {
                       method: 'DELETE',
                       headers: {
                         'Content-Type': 'application/json',
@@ -844,7 +844,7 @@ function App() {
 
                     // Refresh profiles list
                     try {
-                      const profilesResponse = await fetch('http://localhost:5555/api/profiles');
+                      const profilesResponse = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/profiles`);
                       if (profilesResponse.ok) {
                         const data = await profilesResponse.json();
                         setProfiles(data);
@@ -1097,7 +1097,7 @@ function App() {
                       animationFile: selectedAnimationName || (selectedAnimation ? selectedAnimation.name : ''),
                       base64Image: selectedImage ? selectedImage.base64Image : '',
                     };
-                    const endpoint = editingProfileUuid ? 'http://localhost:5555/api/updateProfile' : 'http://localhost:5555/api/profile';
+                    const endpoint = editingProfileUuid ? `${process.env.REACT_APP_BACKEND_API_URL}/api/updateProfile` : `${process.env.REACT_APP_BACKEND_API_URL}/api/profile`;
                     console.log('Saving profile with payload:', payload, 'endpoint:', endpoint, 'selectedAnimationName:', selectedAnimationName, 'selectedAnimation:', selectedAnimation);
                     const response = await fetch(endpoint, {
                       method: 'POST',
@@ -1121,7 +1121,7 @@ function App() {
 
                     // Refresh profiles list (ignore errors here) and update selected/current profile
                     try {
-                      const profilesResponse = await fetch('http://localhost:5555/api/profiles');
+                      const profilesResponse = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/profiles`);
                       if (profilesResponse.ok) {
                         const data = await profilesResponse.json();
                         setProfiles(data);
@@ -1150,7 +1150,7 @@ function App() {
                       try {
                         setLoading(true);
                         setError(null);
-                        const applyResp = await fetch('http://localhost:5555/api/setProfile', {
+                        const applyResp = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/setProfile`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify(payload),
@@ -1172,7 +1172,7 @@ function App() {
 
                         // Now call resetGame to clear the board (same as Apply)
                         try {
-                          const resetResponse = await fetch('http://localhost:5555/api/resetGame', { method: 'POST' });
+                          const resetResponse = await fetch(`${process.env.REACT_APP_BACKEND_API_URL}/api/resetGame`, { method: 'POST' });
                           if (!resetResponse.ok) throw new Error('Failed to reset game on server');
                           setNumber(null);
                           setCall(null);
